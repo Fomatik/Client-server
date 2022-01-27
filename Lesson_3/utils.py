@@ -1,6 +1,6 @@
 import json
 
-from setting import MAX_MSG_LEN, ENCODING
+from setting import *
 
 
 def get_message(client):
@@ -21,9 +21,6 @@ def send_message(socket, message):
     """
     Функция сериализации obj в JIM, кодирования и отправки сообщения.
     """
-    if not isinstance(message, dict):
-        raise TypeError
-
     json_message = json.dumps(message)
     encoded_msg = json_message.encode('utf-8')
     socket.send(encoded_msg)

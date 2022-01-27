@@ -8,16 +8,14 @@ import json
 import sys
 import time
 
-from common.utils import send_message, get_message
-from common.setting import SERVER_PORT, SERVER_IP, ACTION, TIME, USER, ACCOUNT_NAME, RESPONSE, ERROR, PRESENCE
+from utils import send_message, get_message
+from setting import *
 from socket import socket, AF_INET, SOCK_STREAM
 
 
-def create_presence(account_name: str = 'Guest') -> dict:
+def create_presence(account_name):
     """
     Функция формирования PRESENCE сообщения
-    :param account_name:
-    :return:
     """
     out = {
         ACTION: PRESENCE,
@@ -29,11 +27,9 @@ def create_presence(account_name: str = 'Guest') -> dict:
     return out
 
 
-def process_answer(message: dict) -> str:
+def process_answer(message):
     """
     Функция обработки ответа сервера
-    :param message:
-    :return:
     """
     if RESPONSE in message:
         if message[RESPONSE] == 200:
@@ -59,7 +55,7 @@ def main():
 
     client_sock = socket(AF_INET, SOCK_STREAM)
     client_sock.connect((server_ip, server_port))
-    msg = create_presence()
+    msg = create_presence('Guest')
     send_message(client_sock, msg)
     try:
         answer = process_answer(get_message(client_sock))

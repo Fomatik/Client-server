@@ -7,27 +7,21 @@
 имеет параметры командной строки: -p <port> — TCP-порт для работы (по умолчанию использует 7777);
 -a <addr> — IP-адрес для прослушивания (по умолчанию слушает все доступные адреса).
 """
-import sys
 import json
 
-from common.setting import SERVER_IP, SERVER_PORT, MAX_CONNECTIONS, ACTION, TIME, USER, ACCOUNT_NAME, PRESENCE, \
-    RESPONSE, ERROR
-from common.utils import get_message, send_message
+from setting import *
+from utils import get_message, send_message
+import sys
 from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
 
 
-def process_client_message(message: dict) -> dict:
-    """Функция для формирования ответа клиенту
-    :param message:
-    :return:
-    """
+def process_client_message(message):
+    """Функция для формирования ответа клиенту"""
     try:
-        if message.keys() == {ACTION, TIME, USER}:
-            if message[ACTION] == PRESENCE and message[USER][ACCOUNT_NAME] == 'Guest':
-                return {RESPONSE: 200}
-            else:
-                raise ValueError
-        raise KeyError
+        if (message.keys() & {ACTION, TIME, USER}) and (message[ACTION] == PRESENCE and message[USER][ACCOUNT_NAME] == 'Guest'):
+            return {RESPONSE: 200}
+        else:
+            raise ValueError
     except (ValueError, KeyError):
         return {
             RESPONSE: 400,
