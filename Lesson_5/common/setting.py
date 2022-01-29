@@ -1,5 +1,7 @@
 """Константы"""
 
+import logging
+
 # Порт по умолчанию
 SERVER_PORT = 7777
 # IP-адрес сервера
@@ -10,6 +12,8 @@ MAX_CONNECTIONS = 1
 MAX_MSG_LEN = 1024
 # Кодировка
 ENCODING = 'utf-8'
+# Уровень логов по умолчанию
+LOG_LVL = logging.DEBUG
 
 # Ключи протокола JIM
 ACTION = 'action'
@@ -21,4 +25,3 @@ ACCOUNT_NAME = 'account_name'
 PRESENCE = 'presence'
 RESPONSE = 'response'
 ERROR = 'error'
-RESPONSE_DEFAULT_IP_ADDRESS = 'response_default_ip_address'

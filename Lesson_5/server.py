@@ -7,13 +7,24 @@
 имеет параметры командной строки: -p <port> — TCP-порт для работы (по умолчанию использует 7777);
 -a <addr> — IP-адрес для прослушивания (по умолчанию слушает все доступные адреса).
 """
+import argparse
+import logging
+import os
 import sys
 import json
+
+sys.path.append(os.path.join(os.path.dirname(__file__), './common'))
+sys.path.append(os.path.join(os.path.dirname(__file__), './log'))
 
 from common.setting import SERVER_IP, SERVER_PORT, MAX_CONNECTIONS, ACTION, TIME, USER, ACCOUNT_NAME, PRESENCE, \
     RESPONSE, ERROR
 from common.utils import get_message, send_message
+from common.errors import IncorrectDataRecivedError
 from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
+import log.server_log_config
+
+# Инициализация логирования сервера.
+SERVER_LOGGER = logging.getLogger('server')
 
 
 def process_client_message(message: dict) -> dict:
@@ -21,6 +32,7 @@ def process_client_message(message: dict) -> dict:
     :param message:
     :return:
     """
+    SERVER_LOGGER.debug(f'Разбор сообщения от клиента : {message}')
     try:
         if message.keys() == {ACTION, TIME, USER}:
             if message[ACTION] == PRESENCE and message[USER][ACCOUNT_NAME] == 'Guest':
@@ -29,10 +41,24 @@ def process_client_message(message: dict) -> dict:
                 raise ValueError
         raise KeyError
     except (ValueError, KeyError):
+        SERVER_LOGGER.error(f'Неправильное PRESENCE сообщение от клиента: {message}')
         return {
             RESPONSE: 400,
             ERROR: 'BadRequest'
         }
+
+
+def create_arg_parser():
+    """
+    Парсер аргументов коммандной строки
+    :return:
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-a', default=SERVER_IP, nargs='?', help=f'IP адрес для старта сервера (по умолчанию: '
+                                                                 f'{SERVER_IP})')
+    parser.add_argument('-p', default=SERVER_PORT, type=int, nargs='?', help=f'Порт для старта сервера 1024-65535 (по умолчанию: {SERVER_PORT})')
+
+    return parser
 
 
 def main():
@@ -44,29 +70,19 @@ def main():
     """
 
     # Получение номера порта из параметров командной строки
-    try:
-        if '-p' in sys.argv:
-            listening_port = int(sys.argv[sys.argv.index('-p') + 1])
-        else:
-            listening_port = SERVER_PORT
-        if listening_port < 1024 and listening_port < 65535:
-            raise ValueError
-    except (IndexError, ValueError):
-        print('Необходимо указать номер порта \'-p (1024-65535)\'!')
-        sys.exit(1)
+    parser = create_arg_parser()
+    namespace = parser.parse_args(sys.argv[1:])
+    listening_address = namespace.a
+    listening_port = namespace.p
 
-    # Получение ip адреса из параметров командной строки
-    try:
-        if '-a' in sys.argv:
-            listening_address = sys.argv[sys.argv.index('-a') + 1]
-        else:
-            listening_address = SERVER_IP
-    except IndexError:
-        print('Необходимо указать ip-адрес \'-a (IPv4)\'!')
+    # проверка получения корректного номера порта для работы сервера.
+    if not 1023 < listening_port < 65536:
+        SERVER_LOGGER.critical(f'Попытка запуска сервера с указанием неподходящего порта '
+                               f'{listening_port}. Допустимы адреса с 1024 до 65535.')
         sys.exit(1)
-
-    print(f'Порт: {listening_port}')
-    print(f'IP: {listening_address}')
+    SERVER_LOGGER.info(f'Запущен сервер, порт для подключений: {listening_port}, '
+                       f'адрес с которого принимаются подключения: {listening_address}. '
+                       f'Если адрес не указан, принимаются соединения с любых адресов.')
 
     # Сокет
     serv_sock = socket(AF_INET, SOCK_STREAM)
@@ -81,14 +97,22 @@ def main():
     try:
         while True:
             client, client_address = serv_sock.accept()
+            SERVER_LOGGER.info(f'Установлено соединение с ПК {client_address}')
             try:
                 msg_from_client = get_message(client)
-                print(f'Сообщение от клиента: {msg_from_client}')
+                SERVER_LOGGER.debug(f'Получено сообщение {msg_from_client}')
                 response_msg = process_client_message(msg_from_client)
-                print(f'Ответ клиенту: {response_msg}')
+                SERVER_LOGGER.info(f'Сформирован ответ клиенту {response_msg}')
                 send_message(client, response_msg)
+                SERVER_LOGGER.debug(f'Соединение с клиентом {client_address} закрывается.')
                 client.close()
             except json.JSONDecodeError:
+                SERVER_LOGGER.error(f'Не удалось декодировать Json строку, полученную от клиента {client_address}. '
+                                    f'Соединение закрывается.')
+                client.close()
+            except IncorrectDataRecivedError:
+                SERVER_LOGGER.error(f'От клиента {client_address} приняты некорректные данные. '
+                                    f'Соединение закрывается.')
                 client.close()
     finally:
         serv_sock.close()
