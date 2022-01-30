@@ -3,7 +3,7 @@
 import sys
 import os
 import logging
-sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '../Lesson_5/'))
 from common.setting import LOG_LVL
 
 # создаём формировщик логов (formatter):

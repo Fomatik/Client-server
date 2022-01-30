@@ -13,8 +13,8 @@ import os
 import sys
 import json
 
-sys.path.append(os.path.join(os.path.dirname(__file__), './common'))
-sys.path.append(os.path.join(os.path.dirname(__file__), './log'))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'common'))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'log'))
 
 from common.setting import SERVER_IP, SERVER_PORT, MAX_CONNECTIONS, ACTION, TIME, USER, ACCOUNT_NAME, PRESENCE, \
     RESPONSE, ERROR

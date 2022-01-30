@@ -6,8 +6,8 @@ import os
 import sys
 import unittest
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(os.path.join(os.path.dirname(__file__), '../common'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'common'))
 
 from common.setting import ACTION, TIME, USER, ACCOUNT_NAME, PRESENCE, RESPONSE, ERROR, ENCODING
 from common.utils import get_message, send_message

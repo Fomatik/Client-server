@@ -5,8 +5,8 @@ import sys
 import os
 import unittest
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(os.path.join(os.path.dirname(__file__), '../common'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'common'))
 
 from client import create_presence, process_answer
 from common.setting import ACTION, TIME, USER, ACCOUNT_NAME, RESPONSE, ERROR, PRESENCE

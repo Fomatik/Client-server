@@ -10,8 +10,8 @@ import os
 import sys
 import time
 
-sys.path.append(os.path.join(os.path.dirname(__file__), './common'))
-sys.path.append(os.path.join(os.path.dirname(__file__), './log'))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'common'))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'log'))
 
 from common.errors import ReqFieldMissingError
 from common.utils import send_message, get_message
