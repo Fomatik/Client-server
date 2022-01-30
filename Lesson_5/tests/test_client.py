@@ -10,6 +10,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../common'))
 
 from client import create_presence, process_answer
 from common.setting import ACTION, TIME, USER, ACCOUNT_NAME, RESPONSE, ERROR, PRESENCE
+from common.errors import ReqFieldMissingError
 
 
 class TestClient(unittest.TestCase):
@@ -43,7 +44,7 @@ class TestClient(unittest.TestCase):
     def test_another_answer(self):
         """ Тест обработки исключения ответа сообщения"""
         message = {'_'}
-        self.assertRaises(ValueError, process_answer, message)
+        self.assertRaises(ReqFieldMissingError, process_answer, message)
 
 
 if __name__ == '__main__':

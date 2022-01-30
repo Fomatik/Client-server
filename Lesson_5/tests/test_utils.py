@@ -11,6 +11,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../common'))
 
 from common.setting import ACTION, TIME, USER, ACCOUNT_NAME, PRESENCE, RESPONSE, ERROR, ENCODING
 from common.utils import get_message, send_message
+from common.errors import NonDictInputError
 
 
 class TestSocket:
@@ -62,7 +63,7 @@ class TestUtils(unittest.TestCase):
         pass
 
     def test_send_wrong_message_from_client(self):
-        self.assertRaises(TypeError, send_message, TestSocket(self.test_dict), 'message')
+        self.assertRaises(NonDictInputError, send_message, TestSocket(self.test_dict), 'message')
 
     def test_send_message_from_client_to_server(self):
         test_socket = TestSocket(self.test_dict)

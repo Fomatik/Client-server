@@ -1,5 +1,6 @@
 import json
 
+from common.errors import NonDictInputError
 from setting import MAX_MSG_LEN, ENCODING
 
 
@@ -22,7 +23,7 @@ def send_message(socket, message):
     Функция сериализации obj в JIM, кодирования и отправки сообщения.
     """
     if not isinstance(message, dict):
-        raise TypeError
+        raise NonDictInputError
 
     json_message = json.dumps(message)
     encoded_msg = json_message.encode('utf-8')
