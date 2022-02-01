@@ -13,20 +13,20 @@ import os
 import sys
 import json
 
-sys.path.append(os.path.join(os.path.dirname(__file__), 'common'))
-sys.path.append(os.path.join(os.path.dirname(__file__), 'log'))
+sys.path.append(os.path.join(os.path.dirname(__file__), './common'))
 
 from common.setting import SERVER_IP, SERVER_PORT, MAX_CONNECTIONS, ACTION, TIME, USER, ACCOUNT_NAME, PRESENCE, \
     RESPONSE, ERROR
 from common.utils import get_message, send_message
 from common.errors import IncorrectDataRecivedError
+from common.decos import log
 from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
-import log.server_log_config
 
 # Инициализация логирования сервера.
 SERVER_LOGGER = logging.getLogger('server')
 
 
+@log
 def process_client_message(message: dict) -> dict:
     """Функция для формирования ответа клиенту
     :param message:
@@ -48,6 +48,7 @@ def process_client_message(message: dict) -> dict:
         }
 
 
+@log
 def create_arg_parser():
     """
     Парсер аргументов коммандной строки

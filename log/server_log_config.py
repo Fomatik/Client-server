@@ -3,11 +3,13 @@
 import sys
 import os
 import logging.handlers
-sys.path.append(os.path.join(os.path.dirname(__file__), '../Lesson_5/'))
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '../common'))
+
 from common.setting import LOG_LVL
 
 # создаём формировщик логов (formatter):
-SERVER_FORMATTER = logging.Formatter('%(asctime)s %(levelname)-8s %(module)s %(message)s')
+SERVER_FORMATTER = logging.Formatter('%(asctime)s %(levelname)-8s %(filename)s %(message)s')
 
 # Подготовка имени файла для логирования
 PATH = os.path.dirname(os.path.abspath(__file__))
