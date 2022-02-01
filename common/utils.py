@@ -1,9 +1,11 @@
 import json
 
 from common.errors import NonDictInputError
+from common.decos import log
 from setting import MAX_MSG_LEN, ENCODING
 
 
+@log
 def get_message(client):
     """
     Функция получения, декодирования и десериализации JIM сообщения в obj.
@@ -18,6 +20,7 @@ def get_message(client):
     raise ValueError
 
 
+@log
 def send_message(socket, message):
     """
     Функция сериализации obj в JIM, кодирования и отправки сообщения.
