@@ -11,14 +11,14 @@ import argparse
 import logging
 import os
 import sys
-import json
+import time
+from select import select
 
 sys.path.append(os.path.join(os.path.dirname(__file__), './common'))
 
 from common.setting import SERVER_IP, SERVER_PORT, MAX_CONNECTIONS, ACTION, TIME, USER, ACCOUNT_NAME, PRESENCE, \
-    RESPONSE, ERROR
+    RESPONSE, ERROR, MESSAGE, SENDER, MESSAGE_TEXT
 from common.utils import get_message, send_message
-from common.errors import IncorrectDataRecivedError
 from common.decos import log
 from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
 
@@ -27,21 +27,28 @@ SERVER_LOGGER = logging.getLogger('server')
 
 
 @log
-def process_client_message(message: dict) -> dict:
+def process_client_message(message: dict, messages_list, client) -> dict:
     """Функция для формирования ответа клиенту
     :param message:
+    :param messages_list:
+    :param client:
     :return:
     """
     SERVER_LOGGER.debug(f'Разбор сообщения от клиента : {message}')
     try:
-        if message.keys() == {ACTION, TIME, USER}:
+        if message.keys() >= {ACTION, TIME, USER}:
             if message[ACTION] == PRESENCE and message[USER][ACCOUNT_NAME] == 'Guest':
-                return {RESPONSE: 200}
+                send_message(client, {RESPONSE: 200})
+                return
+            elif (message[ACTION] == MESSAGE) and (message[USER][ACCOUNT_NAME] == 'Guest') and (MESSAGE_TEXT in
+                                                                                                message):
+                messages_list.append((message[USER][ACCOUNT_NAME], message[MESSAGE_TEXT]))
+                return
             else:
                 raise ValueError
         raise KeyError
     except (ValueError, KeyError):
-        SERVER_LOGGER.error(f'Неправильное PRESENCE сообщение от клиента: {message}')
+        SERVER_LOGGER.error(f'Неправильное сообщение от клиента {client.getpeername()}: {message}')
         return {
             RESPONSE: 400,
             ERROR: 'BadRequest'
@@ -58,8 +65,17 @@ def create_arg_parser():
     parser.add_argument('-a', default=SERVER_IP, nargs='?', help=f'IP адрес для старта сервера (по умолчанию: '
                                                                  f'{SERVER_IP})')
     parser.add_argument('-p', default=SERVER_PORT, type=int, nargs='?', help=f'Порт для старта сервера 1024-65535 (по умолчанию: {SERVER_PORT})')
+    namespace = parser.parse_args(sys.argv[1:])
+    listening_address = namespace.a
+    listening_port = namespace.p
 
-    return parser
+    # проверка получения корректного номера порта для работы сервера.
+    if not 1023 < listening_port < 65536:
+        SERVER_LOGGER.critical(f'Попытка запуска сервера с указанием неподходящего порта '
+                               f'{listening_port}. Допустимы адреса с 1024 до 65535.')
+        sys.exit(1)
+
+    return listening_address, listening_port
 
 
 def main():
@@ -71,16 +87,8 @@ def main():
     """
 
     # Получение номера порта из параметров командной строки
-    parser = create_arg_parser()
-    namespace = parser.parse_args(sys.argv[1:])
-    listening_address = namespace.a
-    listening_port = namespace.p
+    listening_address, listening_port = create_arg_parser()
 
-    # проверка получения корректного номера порта для работы сервера.
-    if not 1023 < listening_port < 65536:
-        SERVER_LOGGER.critical(f'Попытка запуска сервера с указанием неподходящего порта '
-                               f'{listening_port}. Допустимы адреса с 1024 до 65535.')
-        sys.exit(1)
     SERVER_LOGGER.info(f'Запущен сервер, порт для подключений: {listening_port}, '
                        f'адрес с которого принимаются подключения: {listening_address}. '
                        f'Если адрес не указан, принимаются соединения с любых адресов.')
@@ -90,31 +98,61 @@ def main():
     serv_sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     # IP и PORT
     serv_sock.bind((listening_address, listening_port))
+    # Таймаут метода accept
+    serv_sock.settimeout(0.5)
     # Слушаем адрес сервера и задаём размер очереди
     serv_sock.listen(MAX_CONNECTIONS)
+
+    # список клиентов, очередь сообщений
+    clients = []
+    messages = []
 
     # Открытие и закрытие соединения с клиентом
     # Получение и отправка сообщения клиенту
     try:
         while True:
-            client, client_address = serv_sock.accept()
-            SERVER_LOGGER.info(f'Установлено соединение с ПК {client_address}')
             try:
-                msg_from_client = get_message(client)
-                SERVER_LOGGER.debug(f'Получено сообщение {msg_from_client}')
-                response_msg = process_client_message(msg_from_client)
-                SERVER_LOGGER.info(f'Сформирован ответ клиенту {response_msg}')
-                send_message(client, response_msg)
-                SERVER_LOGGER.debug(f'Соединение с клиентом {client_address} закрывается.')
-                client.close()
-            except json.JSONDecodeError:
-                SERVER_LOGGER.error(f'Не удалось декодировать Json строку, полученную от клиента {client_address}. '
-                                    f'Соединение закрывается.')
-                client.close()
-            except IncorrectDataRecivedError:
-                SERVER_LOGGER.error(f'От клиента {client_address} приняты некорректные данные. '
-                                    f'Соединение закрывается.')
-                client.close()
+                client, client_address = serv_sock.accept()
+            except OSError:
+                pass
+            else:
+                SERVER_LOGGER.info(f'Установлено соединение с ПК {client_address}')
+                clients.append(client)
+
+            recv_client_lst = []
+            send_client_lst = []
+            err_lst = []
+
+            try:
+                if clients:
+                    recv_client_lst, send_client_lst, err_lst = select(clients, clients, [], 0)
+            except OSError:
+                pass
+
+            if recv_client_lst:
+                for client_with_msg in recv_client_lst:
+                    try:
+                        process_client_message(get_message(client_with_msg), messages, client_with_msg)
+                    except:
+                        SERVER_LOGGER.info(f'Клиент {client_with_msg.getpeername()} отключился от сервера.')
+                        clients.remove(client_with_msg)
+
+            if messages and send_client_lst:
+                message = {
+                    ACTION: MESSAGE,
+                    SENDER: messages[0][0],
+                    TIME: time.time(),
+                    MESSAGE_TEXT: messages[0][1]
+                }
+                del messages[0]
+                for client in send_client_lst:
+                    try:
+                        send_message(client, message)
+                    except:
+                        SERVER_LOGGER.info(f'Клиент {client.getpeername()} отключился от сервера.')
+                        client.close()
+                        clients.remove(client)
+
     finally:
         serv_sock.close()
 

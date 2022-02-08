@@ -1,6 +1,6 @@
 import json
 
-from common.errors import NonDictInputError
+from common.errors import NonDictInputError, IncorrectDataRecivedError
 from common.decos import log
 from setting import MAX_MSG_LEN, ENCODING
 
@@ -16,8 +16,8 @@ def get_message(client):
         json_from_msg = json.loads(decode_msg)
         if isinstance(json_from_msg, dict):
             return json_from_msg
-        raise ValueError
-    raise ValueError
+        raise IncorrectDataRecivedError
+    raise IncorrectDataRecivedError
 
 
 @log
