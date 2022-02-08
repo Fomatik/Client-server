@@ -10,19 +10,19 @@ import os
 import sys
 import time
 
-sys.path.append(os.path.join(os.path.dirname(__file__), 'common'))
-sys.path.append(os.path.join(os.path.dirname(__file__), 'log'))
+sys.path.append(os.path.join(os.path.dirname(__file__), './common'))
 
 from common.errors import ReqFieldMissingError
 from common.utils import send_message, get_message
 from common.setting import SERVER_PORT, SERVER_IP, ACTION, TIME, USER, ACCOUNT_NAME, RESPONSE, ERROR, PRESENCE
+from common.decos import log
 from socket import socket, AF_INET, SOCK_STREAM
-import log.client_log_config
 
 # Инициализация клиентского логера
 CLIENT_LOGGER = logging.getLogger('client')
 
 
+@log
 def create_presence(account_name: str = 'Guest') -> dict:
     """
     Функция формирования PRESENCE сообщения
@@ -40,6 +40,7 @@ def create_presence(account_name: str = 'Guest') -> dict:
     return out
 
 
+@log
 def process_answer(message: dict) -> str:
     """
     Функция обработки ответа сервера
@@ -54,6 +55,7 @@ def process_answer(message: dict) -> str:
     raise ReqFieldMissingError(RESPONSE)
 
 
+@log
 def create_arg_parser():
     """
     Создаём парсер аргументов командной строки.
