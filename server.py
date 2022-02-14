@@ -17,7 +17,7 @@ from select import select
 sys.path.append(os.path.join(os.path.dirname(__file__), './common'))
 
 from common.setting import SERVER_IP, SERVER_PORT, MAX_CONNECTIONS, ACTION, TIME, USER, ACCOUNT_NAME, PRESENCE, \
-    RESPONSE, ERROR, MESSAGE, SENDER, MESSAGE_TEXT
+    RESPONSE, ERROR, MESSAGE, SENDER, MESSAGE_TEXT, RESPONSE_200, RESPONSE_400, DESTINATION, EXIT
 from common.utils import get_message, send_message
 from common.decos import log
 from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
@@ -27,8 +27,10 @@ SERVER_LOGGER = logging.getLogger('server')
 
 
 @log
-def process_client_message(message: dict, messages_list, client) -> dict:
+def process_client_message(message: dict, messages_list, client, clients, names) -> dict:
     """Функция для формирования ответа клиенту
+    :param names:
+    :param clients:
     :param message:
     :param messages_list:
     :param client:
@@ -36,23 +38,57 @@ def process_client_message(message: dict, messages_list, client) -> dict:
     """
     SERVER_LOGGER.debug(f'Разбор сообщения от клиента : {message}')
     try:
-        if message.keys() >= {ACTION, TIME, USER}:
-            if message[ACTION] == PRESENCE and message[USER][ACCOUNT_NAME] == 'Guest':
-                send_message(client, {RESPONSE: 200})
+        if message.keys() >= {ACTION, TIME}:
+            if message[ACTION] == PRESENCE and USER in message:
+                if message[USER][ACCOUNT_NAME] not in names.keys():
+                    names[message[USER][ACCOUNT_NAME]] = client
+                    send_message(client, RESPONSE_200)
+                else:
+                    response = RESPONSE_400
+                    response[ERROR] = 'Имя пользователя уже занято.'
+                    send_message(client, response)
+                    clients.remove(client)
+                    client.close()
                 return
-            elif (message[ACTION] == MESSAGE) and (message[USER][ACCOUNT_NAME] == 'Guest') and (MESSAGE_TEXT in
-                                                                                                message):
-                messages_list.append((message[USER][ACCOUNT_NAME], message[MESSAGE_TEXT]))
+            # Если это сообщение, то добавляем его в очередь сообщений.
+            elif message[ACTION] == MESSAGE and DESTINATION in message and SENDER in message and MESSAGE_TEXT in message:
+                messages_list.append(message)
+                return
+            # Если клиент выходит
+            elif message[ACTION] == EXIT and ACCOUNT_NAME in message:
+                clients.remove(names[message[ACCOUNT_NAME]])
+                names[message[ACCOUNT_NAME]].close()
+                del names[message[ACCOUNT_NAME]]
                 return
             else:
                 raise ValueError
         raise KeyError
     except (ValueError, KeyError):
         SERVER_LOGGER.error(f'Неправильное сообщение от клиента {client.getpeername()}: {message}')
-        return {
-            RESPONSE: 400,
-            ERROR: 'BadRequest'
-        }
+        RESPONSE_400[ERROR] = 'Запрос некорректен.'
+        send_message(client, RESPONSE_400)
+        return
+
+
+@log
+def process_message(message, names, listen_socks):
+    """
+    Функция адресной отправки сообщения определённому клиенту. Принимает словарь сообщение,
+    список зарегистрированных пользователей и слушающие сокеты. Ничего не возвращает.
+    :param message:
+    :param names:
+    :param listen_socks:
+    :return:
+    """
+    if message[DESTINATION] in names and names[message[DESTINATION]] in listen_socks:
+        send_message(names[message[DESTINATION]], message)
+        SERVER_LOGGER.info(f'Отправлено сообщение пользователю {message[DESTINATION]} от пользователя {message[SENDER]}.')
+    elif message[DESTINATION] in names and names[message[DESTINATION]] not in listen_socks:
+        raise ConnectionError
+    else:
+        SERVER_LOGGER.error(
+            f'Пользователь {message[DESTINATION]} не зарегистрирован на сервере, '
+            f'отправка сообщения невозможна.')
 
 
 @log
@@ -107,6 +143,9 @@ def main():
     clients = []
     messages = []
 
+    # Словарь, содержащий имена пользователей и соответствующие им сокеты.
+    names = dict()  # {client_name: client_socket}
+
     # Открытие и закрытие соединения с клиентом
     # Получение и отправка сообщения клиенту
     try:
@@ -132,26 +171,20 @@ def main():
             if recv_client_lst:
                 for client_with_msg in recv_client_lst:
                     try:
-                        process_client_message(get_message(client_with_msg), messages, client_with_msg)
-                    except:
+                        process_client_message(get_message(client_with_msg), messages, client_with_msg, clients, names)
+                    except Exception:
                         SERVER_LOGGER.info(f'Клиент {client_with_msg.getpeername()} отключился от сервера.')
                         clients.remove(client_with_msg)
 
-            if messages and send_client_lst:
-                message = {
-                    ACTION: MESSAGE,
-                    SENDER: messages[0][0],
-                    TIME: time.time(),
-                    MESSAGE_TEXT: messages[0][1]
-                }
-                del messages[0]
-                for client in send_client_lst:
-                    try:
-                        send_message(client, message)
-                    except:
-                        SERVER_LOGGER.info(f'Клиент {client.getpeername()} отключился от сервера.')
-                        client.close()
-                        clients.remove(client)
+            # Если есть сообщения, обрабатываем каждое.
+            for i in messages:
+                try:
+                    process_message(i, names, send_client_lst)
+                except Exception:
+                    SERVER_LOGGER.info(f'Связь с клиентом с именем {i[DESTINATION]} была потеряна')
+                    clients.remove(names[i[DESTINATION]])
+                    del names[i[DESTINATION]]
+            messages.clear()
 
     finally:
         serv_sock.close()

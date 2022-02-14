@@ -9,8 +9,8 @@ import time
 clients=[]
 server=''
 pathOfFile=path.dirname(__file__)
-pathServer=path.join(pathOfFile, "server.py")
-pathClient=path.join(pathOfFile, "client.py")
+pathServer=path.join(pathOfFile, "practice/server.py")
+pathClient=path.join(pathOfFile, "practice/client.py")
 pathToScriptServer = path.join(pathOfFile, "start","startServer")
 pathToScriptClients = path.join(pathOfFile, "start","startClient")    
 print (pathClient)
