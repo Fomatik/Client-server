@@ -14,6 +14,8 @@ MAX_MSG_LEN = 1024
 ENCODING = 'utf-8'
 # Уровень логов по умолчанию
 LOG_LVL = logging.DEBUG
+# База данных для хранения данных сервера:
+SERVER_DATABASE = 'sqlite:///server_base.db3'
 
 # Ключи протокола JIM
 ACTION = 'action'
